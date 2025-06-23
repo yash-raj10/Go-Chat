@@ -36,15 +36,32 @@
       const messagesDiv = document.getElementById("messages");
       const form = document.getElementById("chat-form");
       const input = document.getElementById("message-input");
+      let typingDiv = null;
 
       ws.onmessage = function (event) {
         try {
           const data = JSON.parse(event.data);
-          const msg = document.createElement("div");
-          msg.className = "bg-blue-100 rounded px-3 py-1 text-gray-800";
-          msg.innerHTML = `<span class='font-bold text-blue-700'>${data.sender_id}:</span> ${data.text}`;
-          messagesDiv.appendChild(msg);
-          messagesDiv.scrollTop = messagesDiv.scrollHeight;
+          if (data.type === "msg") {
+            const msg = document.createElement("div");
+            msg.className = "bg-blue-100 rounded px-3 py-1 text-gray-800";
+            msg.innerHTML = `<span class='font-bold text-blue-700'>${data.sender_id}:</span> ${data.data}`;
+            messagesDiv.appendChild(msg);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            // Remove typing indicator if present
+            if (typingDiv) {
+              typingDiv.remove();
+              typingDiv = null;
+            }
+          } else if (data.type === "typing status") {
+            // Show typing indicator
+            if (!typingDiv) {
+              typingDiv = document.createElement("div");
+              typingDiv.className = "italic text-gray-500";
+              messagesDiv.appendChild(typingDiv);
+            }
+            typingDiv.textContent = `${data.sender_id} is typing...`;
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+          }
         } catch (e) {
           // fallback for non-JSON messages
           const msg = document.createElement("div");
@@ -58,8 +75,15 @@
       form.addEventListener("submit", function (e) {
         e.preventDefault();
         if (input.value.trim() !== "") {
-          ws.send(input.value);
+          ws.send(JSON.stringify({ data: input.value, type: "msg" }));
           input.value = "";
+        }
+      });
+
+      // Send typing status
+      input.addEventListener("input", function () {
+        if (input.value.trim() !== "") {
+          ws.send(JSON.stringify({ data: "typing...", type: "typing status" }));
         }
       });
     </script>

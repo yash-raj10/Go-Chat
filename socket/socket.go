@@ -12,7 +12,8 @@ import (
 // ChatMessage represents a message with sender ID and text
 type ChatMessage struct {
 	SenderID string `json:"sender_id"`
-	Text     string `json:"text"`
+	Data     string `json:"data"` // "any msg"m or "typing...."
+	Type string `json:"type"` // "msg" or "typing status"
 }
 
 // client represents a single websocket connection
@@ -115,9 +116,18 @@ func(manager *WebSocketManager) HandleClientRead(client *Client) {
 			break // exit the loop on error
 		}
 
-		log.Printf("Received message from %s: %s", client.ID, message)
+		var msg ChatMessage
+
+		err = json.Unmarshal(message, &msg)
+		if err != nil {
+			log.Printf("unmarshal error: %v", err)
+			continue 
+		}
+		msg.SenderID = client.ID // set sender ID to client's ID
+
+		log.Printf("Received message from %s: %s", client.ID, msg.Data)
 		// Broadcast ChatMessage struct
-		manager.Broadcast <- ChatMessage{SenderID: client.ID, Text: string(message)}
+		manager.Broadcast <-  msg
 	}
 	
 }
