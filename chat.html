@@ -38,11 +38,21 @@
       const input = document.getElementById("message-input");
 
       ws.onmessage = function (event) {
-        const msg = document.createElement("div");
-        msg.className = "bg-blue-100 rounded px-3 py-1 text-gray-800";
-        msg.textContent = event.data;
-        messagesDiv.appendChild(msg);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        try {
+          const data = JSON.parse(event.data);
+          const msg = document.createElement("div");
+          msg.className = "bg-blue-100 rounded px-3 py-1 text-gray-800";
+          msg.innerHTML = `<span class='font-bold text-blue-700'>${data.sender_id}:</span> ${data.text}`;
+          messagesDiv.appendChild(msg);
+          messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        } catch (e) {
+          // fallback for non-JSON messages
+          const msg = document.createElement("div");
+          msg.className = "bg-blue-100 rounded px-3 py-1 text-gray-800";
+          msg.textContent = event.data;
+          messagesDiv.appendChild(msg);
+          messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
       };
 
       form.addEventListener("submit", function (e) {

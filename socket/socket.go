@@ -1,6 +1,7 @@
 package socket
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"sync"
@@ -8,17 +9,23 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// ChatMessage represents a message with sender ID and text
+type ChatMessage struct {
+	SenderID string `json:"sender_id"`
+	Text     string `json:"text"`
+}
+
 // client represents a single websocket connection
 type Client struct{
 	Conn *websocket.Conn
-	Send chan []byte
+	Send chan ChatMessage
 	ID string
 }
 
 // this manages websocket connections
 type WebSocketManager struct {
 	Clients map[*Client]bool
-	Broadcast chan []byte
+	Broadcast chan ChatMessage
 	Register chan *Client
 	Unregister chan *Client
 	Mutex sync.RWMutex
@@ -27,7 +34,7 @@ type WebSocketManager struct {
 func NewWebSocketManager() *WebSocketManager {
 	return &WebSocketManager{
 		Clients: make(map[*Client]bool),
-		Broadcast: make(chan []byte),
+		Broadcast: make(chan ChatMessage),
 		Register: make(chan *Client),
 		Unregister: make(chan *Client),
 	}
@@ -45,7 +52,8 @@ func(manager *WebSocketManager) Run(){
 			if _, ok := manager.Clients[client]; ok {
 				delete(manager.Clients, client)
 				close(client.Send)
-			}	
+			}
+			manager.Mutex.Unlock()
 		case message := <- manager.Broadcast:
 			manager.Mutex.RLock()
 			for client := range manager.Clients{
@@ -57,7 +65,6 @@ func(manager *WebSocketManager) Run(){
 				}
 			}
 			manager.Mutex.RUnlock()
-			
 		}
 	}
 }
@@ -82,7 +89,7 @@ func(manager *WebSocketManager) HandleWBConnections(w http.ResponseWriter, r *ht
 	
 	client := &Client{
 		Conn: conn,
-		Send: make(chan []byte),
+		Send: make(chan ChatMessage),
 		ID: r.RemoteAddr, // using remote address as id 
 	}
 
@@ -109,7 +116,8 @@ func(manager *WebSocketManager) HandleClientRead(client *Client) {
 		}
 
 		log.Printf("Received message from %s: %s", client.ID, message)
-		manager.Broadcast <- message // broadcast the message to all clients
+		// Broadcast ChatMessage struct
+		manager.Broadcast <- ChatMessage{SenderID: client.ID, Text: string(message)}
 	}
 	
 }
@@ -127,18 +135,24 @@ func(manager *WebSocketManager) HandleClientWrite(client *Client) {
 					return
 				}
 
-				 // write the message to client 
+				// Marshal ChatMessage to JSON
+				msgBytes, err := json.Marshal(message)
+				if err != nil {
+					log.Printf("marshal error: %v", err)
+					continue
+				}
+
 				w, err := client.Conn.NextWriter(websocket.TextMessage)
 				if err != nil {
 					log.Printf("websocket write error: %v", err)
 					return
 				}
-				w.Write(message)
+				w.Write(msgBytes)
 
-				// send any queued message
 				n := len(client.Send)
 				for i := 0; i<n ; i++{
-					w.Write(<-client.Send)
+					msgBytes, _ := json.Marshal(<-client.Send)
+					w.Write(msgBytes)
 				}
 
 				if err := w.Close(); err !=nil{
