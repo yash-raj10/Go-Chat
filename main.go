@@ -10,6 +10,8 @@ import (
 func main(){
 	r := gin.Default()
 
+	r.LoadHTMLFiles("chat.html")
+
 	ws := socket.NewWebSocketManager()
 	go ws.Run()
 

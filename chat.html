@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chat Room</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="w-full max-w-md bg-white rounded shadow-lg p-6 flex flex-col">
+      <h1 class="text-2xl font-bold mb-4 text-center">Chat Room</h1>
+      <div
+        id="messages"
+        class="flex-1 overflow-y-auto mb-4 space-y-2 h-64 border rounded p-2 bg-gray-50"
+      ></div>
+      <form id="chat-form" class="flex gap-2">
+        <input
+          id="message-input"
+          type="text"
+          class="flex-1 border rounded px-3 py-2 focus:outline-none focus:ring"
+          placeholder="Type your message..."
+          autocomplete="off"
+          required
+        />
+        <button
+          type="submit"
+          class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+        >
+          Send
+        </button>
+      </form>
+    </div>
+    <script>
+      const ws = new WebSocket(`ws://${location.host}/ws`);
+      const messagesDiv = document.getElementById("messages");
+      const form = document.getElementById("chat-form");
+      const input = document.getElementById("message-input");
+
+      ws.onmessage = function (event) {
+        const msg = document.createElement("div");
+        msg.className = "bg-blue-100 rounded px-3 py-1 text-gray-800";
+        msg.textContent = event.data;
+        messagesDiv.appendChild(msg);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      };
+
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        if (input.value.trim() !== "") {
+          ws.send(input.value);
+          input.value = "";
+        }
+      });
+    </script>
+  </body>
+</html>
